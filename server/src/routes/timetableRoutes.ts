@@ -47,6 +47,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
 // Create timetable entry (staff/admin only)
 router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        console.log('Create Timetable Entry Request Body:', req.body);
         const { branch, year, section, dayOfWeek, startTime, endTime, subject, room, faculty } = req.body;
         const userId = req.user?.userId;
 
@@ -63,6 +64,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Pro
 
         // Validate required fields
         if (!branch || !year || !section || !startTime || !endTime || !subject) {
+            console.log('Missing fields:', { branch, year, section, startTime, endTime, subject });
             res.status(400).json({ message: 'Missing required fields: branch, year, section, startTime, endTime, subject' });
             return;
         }
@@ -72,7 +74,10 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Pro
             res.status(400).json({ message: `Invalid branch. Must be one of: ${BRANCHES.join(', ')}` });
             return;
         }
-        if (!isValidYear(parseInt(year))) {
+
+        const parsedYear = parseInt(year);
+        if (!isValidYear(parsedYear)) {
+            console.log('Invalid year:', year, parsedYear);
             res.status(400).json({ message: `Invalid year. Must be one of: ${YEARS.join(', ')}` });
             return;
         }
@@ -81,12 +86,27 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Pro
             return;
         }
 
+        const parsedDayOfWeek = parseInt(dayOfWeek);
+        const finalDayOfWeek = isNaN(parsedDayOfWeek) ? 0 : parsedDayOfWeek;
+
+        console.log('Creating entry with:', {
+            branch,
+            year: parsedYear,
+            section,
+            dayOfWeek: finalDayOfWeek,
+            startTime,
+            endTime,
+            subject,
+            room: room || null,
+            faculty: faculty || null,
+        });
+
         const entry = await prisma.timetableEntry.create({
             data: {
                 branch,
-                year: parseInt(year),
+                year: parsedYear,
                 section,
-                dayOfWeek: parseInt(dayOfWeek) || 0,
+                dayOfWeek: finalDayOfWeek,
                 startTime,
                 endTime,
                 subject,
@@ -98,7 +118,11 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Pro
         res.status(201).json(entry);
     } catch (error) {
         console.error('Error creating timetable entry:', error);
-        res.status(500).json({ message: 'Failed to create timetable entry' });
+        // @ts-ignore
+        if (error.code) console.error('Error code:', error.code);
+        // @ts-ignore
+        if (error.meta) console.error('Error meta:', error.meta);
+        res.status(500).json({ message: 'Failed to create timetable entry', error: String(error) });
     }
 });
 

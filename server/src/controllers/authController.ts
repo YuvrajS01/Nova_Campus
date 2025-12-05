@@ -52,7 +52,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
                 passwordHash: hashedPassword,
                 role: role || 'student',
                 branch,
-                year,
+                year: year ? parseInt(year) : null,
                 section,
             },
         });

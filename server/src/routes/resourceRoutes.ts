@@ -50,6 +50,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
 // Create resource (staff/admin only)
 router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        console.log('Create Resource Request Body:', req.body);
         const { title, subject, semester, branch, year, type, url } = req.body;
         const userId = req.user?.userId;
 
@@ -69,10 +70,24 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Pro
             res.status(400).json({ message: `Invalid branch. Must be one of: ${BRANCHES.join(', ')}` });
             return;
         }
-        if (year && !isValidYear(parseInt(year))) {
+
+        const parsedYear = year ? parseInt(year) : null;
+        if (year && parsedYear !== null && !isValidYear(parsedYear)) {
+            console.log('Invalid year:', year, parsedYear);
             res.status(400).json({ message: `Invalid year. Must be one of: ${YEARS.join(', ')}` });
             return;
         }
+
+        console.log('Creating resource with:', {
+            title,
+            subject,
+            semester: semester || null,
+            branch: branch || null,
+            year: parsedYear,
+            type: type || 'pdf',
+            url,
+            createdById: userId,
+        });
 
         const resource = await prisma.resource.create({
             data: {
@@ -80,7 +95,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Pro
                 subject,
                 semester: semester || null,
                 branch: branch || null,
-                year: year ? parseInt(year) : null,
+                year: parsedYear,
                 type: type || 'pdf',
                 url,
                 createdById: userId,
@@ -90,7 +105,11 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Pro
         res.status(201).json(resource);
     } catch (error) {
         console.error('Error creating resource:', error);
-        res.status(500).json({ message: 'Failed to create resource' });
+        // @ts-ignore
+        if (error.code) console.error('Error code:', error.code);
+        // @ts-ignore
+        if (error.meta) console.error('Error meta:', error.meta);
+        res.status(500).json({ message: 'Failed to create resource', error: String(error) });
     }
 });
 
