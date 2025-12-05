@@ -16,6 +16,7 @@ model User {
   branch       String?  // 'CSE' | 'EEE' | 'ME' | 'CE'
   year         Int?     // 1 | 2 | 3 | 4
   section      String?  // 'A' | 'B'
+  registrationNumber String? @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

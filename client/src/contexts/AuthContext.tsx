@@ -13,6 +13,7 @@ interface AuthContextType {
         branch?: Branch;
         year?: Year;
         section?: Section;
+        registrationNumber?: string;
     }) => Promise<void>;
     logout: () => void;
 }
@@ -65,6 +66,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         branch?: Branch;
         year?: Year;
         section?: Section;
+        registrationNumber?: string;
     }) => {
         const response = await authApi.register({ ...data, role: 'student' });
         setToken(response.token);

@@ -65,6 +65,7 @@ export interface User {
     branch?: Branch;
     year?: Year;
     section?: Section;
+    registrationNumber?: string;
     cgpaRecords?: StudentCGPA[];
 }
 
@@ -86,6 +87,7 @@ export interface RegisterData {
     branch?: Branch;
     year?: Year;
     section?: Section;
+    registrationNumber?: string;
 }
 
 // Auth API

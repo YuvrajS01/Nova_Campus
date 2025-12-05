@@ -28,6 +28,11 @@ export const Profile: React.FC = () => {
         <p className="text-gray-500 dark:text-gray-400">
           {user?.branch || 'Student'} {user?.year ? `• Year ${user.year}` : ''} {user?.section ? `• Section ${user.section}` : ''}
         </p>
+        {user?.registrationNumber && (
+          <p className="text-sm text-gray-400 mt-1">
+            Reg No: {user.registrationNumber}
+          </p>
+        )}
         <div className="flex gap-2 mt-4">
           <Badge variant="default">{user?.role || 'student'}</Badge>
           <Badge variant="success">{user?.email}</Badge>

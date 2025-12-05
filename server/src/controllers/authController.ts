@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 export const register = async (req: Request, res: Response): Promise<void> => {
     console.log('Register request received:', req.body);
     try {
-        const { name, email, password, role, branch, year, section } = req.body;
+        const { name, email, password, role, branch, year, section, registrationNumber } = req.body;
 
         // Validate college structure constraints for students
         if (role === 'student') {
@@ -54,13 +54,14 @@ export const register = async (req: Request, res: Response): Promise<void> => {
                 branch,
                 year: year ? parseInt(year) : null,
                 section,
+                registrationNumber,
             },
         });
         console.log('User created:', user.id);
 
         const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
 
-        res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+        res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, registrationNumber: user.registrationNumber } });
     } catch (error) {
         console.error('Error in register:', error);
         res.status(500).json({ message: 'Something went wrong', error: String(error) });
@@ -107,6 +108,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                 branch: user.branch,
                 year: user.year,
                 section: user.section,
+                registrationNumber: user.registrationNumber,
                 cgpaRecords: user.cgpaRecords
             }
         });

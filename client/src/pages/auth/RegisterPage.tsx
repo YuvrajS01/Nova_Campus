@@ -18,6 +18,7 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
         branch: '' as Branch | '',
         year: '' as Year | '',
         section: '' as Section | '',
+        registrationNumber: '',
     });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -39,6 +40,7 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
                 branch: formData.branch || undefined,
                 year: formData.year || undefined,
                 section: formData.section || undefined,
+                registrationNumber: formData.registrationNumber || undefined,
             });
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Registration failed');
@@ -148,6 +150,18 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
                                     <option value="">Sec</option>
                                     {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
+                            </div>
+
+                            <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                <Input
+                                    type="text"
+                                    name="registrationNumber"
+                                    placeholder="Registration Number (Optional)"
+                                    value={formData.registrationNumber}
+                                    onChange={handleChange}
+                                    className="pl-10"
+                                />
                             </div>
                         </div>
 
