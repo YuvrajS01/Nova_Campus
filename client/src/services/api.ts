@@ -168,6 +168,13 @@ export interface Event {
 // Events API
 export const eventsApi = {
     getAll: () => apiFetch<Event[]>('/events'),
+    create: (data: Omit<Event, 'id' | 'createdAt' | 'isRegistered'>) => apiFetch<Event>('/events', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }),
+    delete: (id: string) => apiFetch<{ message: string }>(`/events/${id}`, {
+        method: 'DELETE',
+    }),
     register: (eventId: string) => apiFetch<{ message: string }>(`/events/${eventId}/register`, {
         method: 'POST',
     }),
@@ -202,6 +209,7 @@ export const resourcesApi = {
 // Profile API
 export const profileApi = {
     get: () => apiFetch<User>('/profile'),
+    searchByEmail: (email: string) => apiFetch<User>(`/profile/search?email=${encodeURIComponent(email)}`),
 };
 
 // CGPA API

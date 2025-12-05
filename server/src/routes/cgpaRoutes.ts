@@ -39,8 +39,8 @@ router.get('/:userId', authenticateToken, async (req: AuthRequest, res: Response
         }
 
         const requester = await prisma.user.findUnique({ where: { id: requesterId } });
-        if (!requester || requester.role !== 'admin') {
-            res.status(403).json({ message: 'Only admin can view other users\' CGPA records' });
+        if (!requester || (requester.role !== 'admin' && requester.role !== 'staff')) {
+            res.status(403).json({ message: 'Only admin and staff can view other users\' CGPA records' });
             return;
         }
 
@@ -68,8 +68,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Pro
         }
 
         const requester = await prisma.user.findUnique({ where: { id: requesterId } });
-        if (!requester || requester.role !== 'admin') {
-            res.status(403).json({ message: 'Only admin can create/update CGPA records' });
+        if (!requester || (requester.role !== 'admin' && requester.role !== 'staff')) {
+            res.status(403).json({ message: 'Only admin and staff can create/update CGPA records' });
             return;
         }
 
@@ -137,8 +137,8 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
         }
 
         const requester = await prisma.user.findUnique({ where: { id: requesterId } });
-        if (!requester || requester.role !== 'admin') {
-            res.status(403).json({ message: 'Only admin can delete CGPA records' });
+        if (!requester || (requester.role !== 'admin' && requester.role !== 'staff')) {
+            res.status(403).json({ message: 'Only admin and staff can delete CGPA records' });
             return;
         }
 

@@ -4,15 +4,15 @@ import { Header } from '@/components/layout';
 import { Card, Button, Input, Badge } from '@/components/ui';
 import {
     Plus, Trash2, Bell, Calendar, BookOpen, Loader2, AlertCircle,
-    CheckCircle, X
+    CheckCircle, X, GraduationCap, Search
 } from 'lucide-react';
 import {
-    announcementsApi, timetableApi, resourcesApi,
-    Announcement, TimetableEntry, Resource,
+    announcementsApi, timetableApi, resourcesApi, profileApi, cgpaApi, eventsApi,
+    Announcement, TimetableEntry, Resource, User, Event,
     BRANCHES, YEARS, SECTIONS
 } from '@/services/api';
 
-type AdminTab = 'notices' | 'timetable' | 'resources';
+type AdminTab = 'notices' | 'timetable' | 'resources' | 'cgpa' | 'events';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const TAGS = ['Exam', 'Fee', 'Holiday', 'Placement', 'General'];
@@ -27,22 +27,30 @@ export const Admin: React.FC = () => {
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
     const [resources, setResources] = useState<Resource[]>([]);
+    const [events, setEvents] = useState<Event[]>([]);
 
     // Form states
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState<any>({});
 
+    // CGPA State
+    const [searchEmail, setSearchEmail] = useState('');
+    const [foundUser, setFoundUser] = useState<User | null>(null);
+    const [cgpaForm, setCgpaForm] = useState({ semester: '', cgpa: '' });
+
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const [announcementData, timetableData, resourceData] = await Promise.all([
+            const [announcementData, timetableData, resourceData, eventData] = await Promise.all([
                 announcementsApi.getAll().catch(() => []),
                 timetableApi.getAll().catch(() => []),
                 resourcesApi.getAll().catch(() => []),
+                eventsApi.getAll().catch(() => []),
             ]);
             setAnnouncements(announcementData);
             setTimetable(timetableData);
             setResources(resourceData);
+            setEvents(eventData);
         } catch (error) {
             console.error('Failed to fetch data:', error);
         } finally {
@@ -70,6 +78,9 @@ export const Admin: React.FC = () => {
             } else if (type === 'resources') {
                 await resourcesApi.delete(id);
                 setResources(prev => prev.filter(r => r.id !== id));
+            } else if (type === 'events') {
+                await eventsApi.delete(id);
+                setEvents(prev => prev.filter(e => e.id !== id));
             }
             showMessage('success', 'Deleted successfully');
         } catch (error) {
@@ -127,6 +138,21 @@ export const Admin: React.FC = () => {
                     url: formData.url,
                 });
                 setResources(prev => [resource, ...prev]);
+            } else if (activeTab === 'events') {
+                if (!formData.title || !formData.description || !formData.startTime || !formData.endTime || !formData.location) {
+                    showMessage('error', 'All fields are required');
+                    setIsLoading(false);
+                    return;
+                }
+                const event = await eventsApi.create({
+                    title: formData.title,
+                    description: formData.description,
+                    startTime: formData.startTime,
+                    endTime: formData.endTime,
+                    location: formData.location,
+                    registrationDeadline: formData.registrationDeadline || undefined,
+                });
+                setEvents(prev => [event, ...prev]);
             }
             setShowForm(false);
             setFormData({});
@@ -140,10 +166,62 @@ export const Admin: React.FC = () => {
         }
     };
 
+    const handleSearchUser = async () => {
+        if (!searchEmail) return;
+        setIsLoading(true);
+        try {
+            const user = await profileApi.searchByEmail(searchEmail);
+            setFoundUser(user);
+            showMessage('success', 'User found');
+        } catch (error) {
+            setFoundUser(null);
+            showMessage('error', 'User not found');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleAddCGPA = async () => {
+        if (!foundUser || !cgpaForm.semester || !cgpaForm.cgpa) {
+            showMessage('error', 'Please fill all fields');
+            return;
+        }
+        setIsLoading(true);
+        try {
+            await cgpaApi.create({
+                userId: foundUser.id,
+                semester: parseInt(cgpaForm.semester),
+                cgpa: parseFloat(cgpaForm.cgpa)
+            });
+            const updatedUser = await profileApi.searchByEmail(foundUser.email);
+            setFoundUser(updatedUser);
+            setCgpaForm({ semester: '', cgpa: '' });
+            showMessage('success', 'CGPA updated');
+        } catch (error) {
+            showMessage('error', 'Failed to update CGPA');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDeleteCGPA = async (id: string) => {
+        if (!foundUser) return;
+        try {
+            await cgpaApi.delete(id);
+            const updatedUser = await profileApi.searchByEmail(foundUser.email);
+            setFoundUser(updatedUser);
+            showMessage('success', 'Record deleted');
+        } catch (error) {
+            showMessage('error', 'Failed to delete');
+        }
+    };
+
     const tabs = [
         { id: 'notices' as AdminTab, label: 'Notices', icon: Bell, count: announcements.length },
         { id: 'timetable' as AdminTab, label: 'Timetable', icon: Calendar, count: timetable.length },
         { id: 'resources' as AdminTab, label: 'Resources', icon: BookOpen, count: resources.length },
+        { id: 'events' as AdminTab, label: 'Events', icon: Calendar, count: events.length },
+        { id: 'cgpa' as AdminTab, label: 'CGPA', icon: GraduationCap, count: 0 },
     ];
 
     return (
@@ -190,9 +268,10 @@ export const Admin: React.FC = () => {
             <Button
                 onClick={() => { setShowForm(!showForm); setFormData({}); }}
                 className="w-full"
+                disabled={activeTab === 'cgpa'}
             >
                 {showForm ? <X size={18} /> : <Plus size={18} />}
-                {showForm ? 'Cancel' : `Add ${activeTab === 'notices' ? 'Notice' : activeTab === 'timetable' ? 'Class' : 'Resource'}`}
+                {showForm ? 'Cancel' : `Add ${activeTab === 'notices' ? 'Notice' : activeTab === 'timetable' ? 'Class' : activeTab === 'resources' ? 'Resource' : activeTab === 'events' ? 'Event' : ''}`}
             </Button>
 
             {/* Create Form */}
@@ -358,6 +437,56 @@ export const Admin: React.FC = () => {
                                 </>
                             )}
 
+                            {activeTab === 'events' && (
+                                <>
+                                    <Input
+                                        placeholder="Event Title *"
+                                        value={formData.title || ''}
+                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                    />
+                                    <textarea
+                                        placeholder="Description *"
+                                        value={formData.description || ''}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        className="w-full p-3 rounded-xl bg-gray-100 dark:bg-dark-bg border border-gray-200 dark:border-dark-border min-h-[100px] resize-none"
+                                    />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Input
+                                            type={formData.startTime ? "datetime-local" : "text"}
+                                            placeholder="Start Time *"
+                                            value={formData.startTime || ''}
+                                            onFocus={(e) => e.target.type = 'datetime-local'}
+                                            onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                                            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                                            className="dark:[color-scheme:dark]"
+                                        />
+                                        <Input
+                                            type={formData.endTime ? "datetime-local" : "text"}
+                                            placeholder="End Time *"
+                                            value={formData.endTime || ''}
+                                            onFocus={(e) => e.target.type = 'datetime-local'}
+                                            onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                                            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                                            className="dark:[color-scheme:dark]"
+                                        />
+                                    </div>
+                                    <Input
+                                        placeholder="Location *"
+                                        value={formData.location || ''}
+                                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                    />
+                                    <Input
+                                        type={formData.registrationDeadline ? "datetime-local" : "text"}
+                                        placeholder="Registration Deadline (Optional)"
+                                        value={formData.registrationDeadline || ''}
+                                        onFocus={(e) => e.target.type = 'datetime-local'}
+                                        onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                                        onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
+                                        className="dark:[color-scheme:dark]"
+                                    />
+                                </>
+                            )}
+
                             <Button onClick={handleCreate} disabled={isLoading} className="w-full">
                                 {isLoading ? <Loader2 className="animate-spin" size={18} /> : 'Create'}
                             </Button>
@@ -368,65 +497,154 @@ export const Admin: React.FC = () => {
 
             {/* Content List */}
             <div className="space-y-3 pb-8">
-                {isLoading && !announcements.length && !timetable.length && !resources.length ? (
-                    <div className="text-center py-12 text-gray-400">Loading...</div>
-                ) : (
-                    <>
-                        {activeTab === 'notices' && announcements.map(item => (
-                            <Card key={item.id} className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <Badge variant={item.isImportant ? 'error' : 'default'}>{item.tag}</Badge>
-                                        {item.isImportant && <span className="text-xs text-red-500">Important</span>}
+                {activeTab === 'cgpa' ? (
+                    <div className="space-y-4">
+                        <Card className="flex gap-2">
+                            <Input
+                                placeholder="Search student by email..."
+                                value={searchEmail}
+                                onChange={(e) => setSearchEmail(e.target.value)}
+                                className="flex-1"
+                            />
+                            <Button onClick={handleSearchUser} disabled={isLoading}>
+                                <Search size={18} />
+                            </Button>
+                        </Card>
+
+                        {foundUser && (
+                            <Card className="space-y-4">
+                                <div className="flex items-center justify-between border-b border-gray-100 dark:border-dark-border pb-4">
+                                    <div>
+                                        <h3 className="font-bold dark:text-white">{foundUser.name}</h3>
+                                        <p className="text-sm text-gray-500">{foundUser.branch} • Year {foundUser.year} • Sec {foundUser.section}</p>
                                     </div>
-                                    <h4 className="font-bold dark:text-white truncate">{item.title}</h4>
-                                    <p className="text-sm text-gray-500 line-clamp-2">{item.body}</p>
+                                    <Badge variant="default">{foundUser.role}</Badge>
                                 </div>
-                                <Button variant="ghost" size="sm" onClick={() => handleDelete('notices', item.id)} className="text-red-500 shrink-0">
-                                    <Trash2 size={16} />
-                                </Button>
-                            </Card>
-                        ))}
 
-                        {activeTab === 'timetable' && timetable.map(item => (
-                            <Card key={item.id} className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                    <Badge variant="outline" className="mb-1">{DAYS[item.dayOfWeek]}</Badge>
-                                    <h4 className="font-bold dark:text-white">{item.subject}</h4>
-                                    <p className="text-sm text-gray-500">
-                                        {item.startTime} - {item.endTime} • {item.room || 'TBA'} • {item.faculty || 'TBA'}
-                                    </p>
-                                    <p className="text-xs text-gray-400 mt-1">
-                                        {item.branch} Year {item.year} Sec {item.section}
-                                    </p>
+                                <div className="grid grid-cols-3 gap-2 items-end">
+                                    <Input
+                                        type="number"
+                                        placeholder="Semester"
+                                        value={cgpaForm.semester}
+                                        onChange={(e) => setCgpaForm({ ...cgpaForm, semester: e.target.value })}
+                                    />
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="CGPA"
+                                        value={cgpaForm.cgpa}
+                                        onChange={(e) => setCgpaForm({ ...cgpaForm, cgpa: e.target.value })}
+                                    />
+                                    <Button onClick={handleAddCGPA} disabled={isLoading}>
+                                        Update
+                                    </Button>
                                 </div>
-                                <Button variant="ghost" size="sm" onClick={() => handleDelete('timetable', item.id)} className="text-red-500 shrink-0">
-                                    <Trash2 size={16} />
-                                </Button>
-                            </Card>
-                        ))}
 
-                        {activeTab === 'resources' && resources.map(item => (
-                            <Card key={item.id} className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                    <Badge variant="outline" className="mb-1">{item.type.toUpperCase()}</Badge>
-                                    <h4 className="font-bold dark:text-white truncate">{item.title}</h4>
-                                    <p className="text-sm text-gray-500">{item.subject} {item.semester && `• ${item.semester}`}</p>
+                                <div className="space-y-2">
+                                    <h4 className="font-medium text-sm text-gray-500 uppercase">Current Records</h4>
+                                    {foundUser.cgpaRecords && foundUser.cgpaRecords.length > 0 ? (
+                                        <div className="divide-y divide-gray-100 dark:divide-dark-border">
+                                            {foundUser.cgpaRecords.map((record) => (
+                                                <div key={record.id} className="py-2 flex items-center justify-between">
+                                                    <span className="dark:text-gray-300">Semester {record.semester}</span>
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="font-bold dark:text-white">{record.cgpa.toFixed(2)}</span>
+                                                        <button
+                                                            onClick={() => handleDeleteCGPA(record.id)}
+                                                            className="text-red-500 hover:text-red-600"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-400">No records found.</p>
+                                    )}
                                 </div>
-                                <Button variant="ghost" size="sm" onClick={() => handleDelete('resources', item.id)} className="text-red-500 shrink-0">
-                                    <Trash2 size={16} />
-                                </Button>
                             </Card>
-                        ))}
+                        )}
+                    </div>
+                ) : (
+                    isLoading && !announcements.length && !timetable.length && !resources.length ? (
+                        <div className="text-center py-12 text-gray-400">Loading...</div>
+                    ) : (
+                        <>
+                            {activeTab === 'notices' && announcements.map(item => (
+                                <Card key={item.id} className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Badge variant={item.isImportant ? 'error' : 'default'}>{item.tag}</Badge>
+                                            {item.isImportant && <span className="text-xs text-red-500">Important</span>}
+                                        </div>
+                                        <h4 className="font-bold dark:text-white truncate">{item.title}</h4>
+                                        <p className="text-sm text-gray-500 line-clamp-2">{item.body}</p>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => handleDelete('notices', item.id)} className="text-red-500 shrink-0">
+                                        <Trash2 size={16} />
+                                    </Button>
+                                </Card>
+                            ))}
 
-                        {((activeTab === 'notices' && !announcements.length) ||
-                            (activeTab === 'timetable' && !timetable.length) ||
-                            (activeTab === 'resources' && !resources.length)) && (
-                                <div className="text-center py-12 text-gray-400">
-                                    No {activeTab} yet. Click the button above to add one.
-                                </div>
-                            )}
-                    </>
+                            {activeTab === 'timetable' && timetable.map(item => (
+                                <Card key={item.id} className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <Badge variant="outline" className="mb-1">{DAYS[item.dayOfWeek]}</Badge>
+                                        <h4 className="font-bold dark:text-white">{item.subject}</h4>
+                                        <p className="text-sm text-gray-500">
+                                            {item.startTime} - {item.endTime} • {item.room || 'TBA'} • {item.faculty || 'TBA'}
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            {item.branch} Year {item.year} Sec {item.section}
+                                        </p>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => handleDelete('timetable', item.id)} className="text-red-500 shrink-0">
+                                        <Trash2 size={16} />
+                                    </Button>
+                                </Card>
+                            ))}
+
+                            {activeTab === 'resources' && resources.map(item => (
+                                <Card key={item.id} className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <Badge variant="outline" className="mb-1">{item.type.toUpperCase()}</Badge>
+                                        <h4 className="font-bold dark:text-white truncate">{item.title}</h4>
+                                        <p className="text-sm text-gray-500">{item.subject} {item.semester && `• ${item.semester}`}</p>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => handleDelete('resources', item.id)} className="text-red-500 shrink-0">
+                                        <Trash2 size={16} />
+                                    </Button>
+                                </Card>
+                            ))}
+
+                            {activeTab === 'events' && events.map(item => (
+                                <Card key={item.id} className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <Badge variant="default" className="mb-1">Event</Badge>
+                                        <h4 className="font-bold dark:text-white truncate">{item.title}</h4>
+                                        <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>
+                                        <div className="flex gap-4 mt-2 text-xs text-gray-400">
+                                            <span>{new Date(item.startTime).toLocaleDateString()}</span>
+                                            <span>{item.location}</span>
+                                        </div>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => handleDelete('events', item.id)} className="text-red-500 shrink-0">
+                                        <Trash2 size={16} />
+                                    </Button>
+                                </Card>
+                            ))}
+
+                            {((activeTab === 'notices' && !announcements.length) ||
+                                (activeTab === 'timetable' && !timetable.length) ||
+                                (activeTab === 'resources' && !resources.length) ||
+                                (activeTab === 'events' && !events.length)) && (
+                                    <div className="text-center py-12 text-gray-400">
+                                        No {activeTab} yet. Click the button above to add one.
+                                    </div>
+                                )}
+                        </>
+                    )
                 )}
             </div>
         </div>

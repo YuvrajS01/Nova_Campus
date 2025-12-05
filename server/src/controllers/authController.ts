@@ -71,7 +71,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     try {
         const { email, password } = req.body;
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({
+            where: { email },
+            include: {
+                cgpaRecords: {
+                    orderBy: { semester: 'asc' },
+                    select: {
+                        id: true,
+                        semester: true,
+                        cgpa: true,
+                    }
+                }
+            }
+        });
         if (!user) {
             res.status(400).json({ message: 'Invalid credentials' });
             return;
@@ -85,7 +97,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
         const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
 
-        res.status(200).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+        res.status(200).json({
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                branch: user.branch,
+                year: user.year,
+                section: user.section,
+                cgpaRecords: user.cgpaRecords
+            }
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Something went wrong' });

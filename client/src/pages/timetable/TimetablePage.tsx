@@ -9,8 +9,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export const Timetable: React.FC = () => {
-  const today = new Date().getDay();
-  const [selectedDay, setSelectedDay] = useState(today);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -30,18 +29,22 @@ export const Timetable: React.FC = () => {
 
   const now = new Date();
   const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  const selectedDayOfWeek = selectedDate.getDay();
 
   const dayClasses = timetable
-    .filter(t => t.dayOfWeek === selectedDay)
+    .filter(t => t.dayOfWeek === selectedDayOfWeek)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-  // Generate dates for the week
-  const getDateForDay = (dayIndex: number) => {
-    const date = new Date();
-    const diff = dayIndex - today;
-    date.setDate(date.getDate() + diff);
-    return date.getDate();
-  };
+  // Generate dates: Start from the beginning of the current week (Sunday) and go for 30 days
+  const dates: Date[] = [];
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - startDate.getDay()); // Go back to Sunday
+
+  for (let i = 0; i < 30; i++) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    dates.push(date);
+  }
 
   return (
     <div className="space-y-6">
@@ -49,22 +52,24 @@ export const Timetable: React.FC = () => {
 
       {/* Day Selector */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4">
-        {DAYS.map((day, index) => {
-          const isSelected = selectedDay === index;
-          const isToday = index === today;
+        {dates.map((date) => {
+          const isSelected = date.toDateString() === selectedDate.toDateString();
+          const isToday = date.toDateString() === now.toDateString();
+          const dayName = DAYS[date.getDay()];
+
           return (
             <button
-              key={day}
-              onClick={() => setSelectedDay(index)}
+              key={date.toISOString()}
+              onClick={() => setSelectedDate(date)}
               className={`
-                relative flex flex-col items-center justify-center min-w-[64px] h-20 rounded-2xl transition-all duration-300 border
+                relative flex flex-col items-center justify-center min-w-[64px] h-20 rounded-2xl transition-all duration-300 border shrink-0
                 ${isSelected
                   ? 'bg-gray-900 dark:bg-white text-white dark:text-black border-transparent shadow-lg scale-105 z-10'
                   : 'bg-white dark:bg-dark-surface text-gray-500 dark:text-gray-400 border-gray-100 dark:border-dark-border hover:border-gray-300 dark:hover:border-gray-600'}
               `}
             >
-              <span className="text-xs font-medium opacity-60 uppercase">{day}</span>
-              <span className="text-xl font-display font-bold mt-1">{getDateForDay(index)}</span>
+              <span className="text-xs font-medium opacity-60 uppercase">{dayName}</span>
+              <span className="text-xl font-display font-bold mt-1">{date.getDate()}</span>
               {isToday && !isSelected && (
                 <span className="absolute bottom-2 w-1.5 h-1.5 rounded-full bg-brand-400" />
               )}
@@ -77,7 +82,7 @@ export const Timetable: React.FC = () => {
       <div className="relative border-l-2 border-gray-200 dark:border-dark-border ml-3 space-y-8 pl-6 pb-4">
         <AnimatePresence mode="wait">
           <motion.div
-            key={selectedDay}
+            key={selectedDate.toISOString()}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
@@ -87,7 +92,7 @@ export const Timetable: React.FC = () => {
               <div className="text-center py-12 text-gray-400">Loading schedule...</div>
             ) : dayClasses.length > 0 ? (
               dayClasses.map((cls) => {
-                const isOngoing = selectedDay === today &&
+                const isOngoing = selectedDate.toDateString() === now.toDateString() &&
                   cls.startTime <= currentTime &&
                   cls.endTime > currentTime;
 
@@ -123,7 +128,7 @@ export const Timetable: React.FC = () => {
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                 <Clock size={48} className="mb-4 opacity-20" />
-                <p>No classes scheduled for {DAY_NAMES[selectedDay]}</p>
+                <p>No classes scheduled for {DAY_NAMES[selectedDayOfWeek]}</p>
               </div>
             )}
           </motion.div>

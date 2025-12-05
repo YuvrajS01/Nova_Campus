@@ -1,13 +1,17 @@
 import React from 'react';
 import { Header } from '@/components/layout';
 import { Card, Button, Badge } from '@/components/ui';
-import { Moon, Sun, Settings, LogOut, ChevronRight, Shield, HelpCircle } from 'lucide-react';
+import { Moon, Sun, Settings, LogOut, ChevronRight, Shield, HelpCircle, TrendingUp } from 'lucide-react';
 import { useTheme } from '@/App';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const Profile: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+
+  const averageCgpa = user?.cgpaRecords?.length
+    ? (user.cgpaRecords.reduce((acc, curr) => acc + curr.cgpa, 0) / user.cgpaRecords.length).toFixed(2)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -29,6 +33,43 @@ export const Profile: React.FC = () => {
           <Badge variant="success">{user?.email}</Badge>
         </div>
       </div>
+
+      {/* Academic Performance */}
+      {user?.role === 'student' && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider ml-1">Academic Performance</h3>
+          <Card noPadding>
+            <div className="p-4 border-b border-gray-100 dark:border-dark-border flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 flex items-center justify-center">
+                  <TrendingUp size={20} />
+                </div>
+                <div>
+                  <h4 className="font-bold dark:text-white">Overall CGPA</h4>
+                  <p className="text-xs text-gray-500">Average across all semesters</p>
+                </div>
+              </div>
+              <span className="text-2xl font-bold font-display text-green-600 dark:text-green-400">
+                {averageCgpa || 'N/A'}
+              </span>
+            </div>
+            {user?.cgpaRecords && user.cgpaRecords.length > 0 ? (
+              <div className="divide-y divide-gray-100 dark:divide-dark-border">
+                {user.cgpaRecords.map((record) => (
+                  <div key={record.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-dark-surface2 transition-colors">
+                    <span className="font-medium dark:text-gray-300">Semester {record.semester}</span>
+                    <span className="font-bold dark:text-white">{record.cgpa.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                No CGPA records found.
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
 
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider ml-1">Preferences</h3>

@@ -80,4 +80,71 @@ router.post('/:id/register', authenticateToken, async (req: AuthRequest, res: Re
     }
 });
 
+// Create event (staff/admin only)
+router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { title, description, startTime, endTime, location, registrationDeadline } = req.body;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: 'Unauthorized' });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user || (user.role !== 'staff' && user.role !== 'admin')) {
+            res.status(403).json({ message: 'Only staff and admin can create events' });
+            return;
+        }
+
+        // Validate required fields
+        if (!title || !description || !startTime || !endTime || !location) {
+            res.status(400).json({ message: 'Missing required fields' });
+            return;
+        }
+
+        const event = await prisma.event.create({
+            data: {
+                title,
+                description,
+                startTime: new Date(startTime),
+                endTime: new Date(endTime),
+                location,
+                registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : null,
+                createdById: userId,
+            },
+        });
+
+        res.status(201).json(event);
+    } catch (error) {
+        console.error('Error creating event:', error);
+        res.status(500).json({ message: 'Failed to create event' });
+    }
+});
+
+// Delete event (staff/admin only)
+router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: 'Unauthorized' });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user || (user.role !== 'staff' && user.role !== 'admin')) {
+            res.status(403).json({ message: 'Only staff and admin can delete events' });
+            return;
+        }
+
+        await prisma.event.delete({ where: { id } });
+        res.json({ message: 'Event deleted' });
+    } catch (error) {
+        console.error('Error deleting event:', error);
+        res.status(500).json({ message: 'Failed to delete event' });
+    }
+});
+
 export default router;
