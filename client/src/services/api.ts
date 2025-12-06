@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 // College structure constants
 export const BRANCHES = ['CSE', 'EEE', 'ME', 'CE'] as const;

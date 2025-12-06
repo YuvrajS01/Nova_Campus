@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: nova-campus-server
+    env: node
+    plan: free
+    region: singapore
+    buildCommand: cd server && npm install && npx prisma generate && npm run build
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.0.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nova-campus-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+
+databases:
+  - name: nova-campus-db
+    databaseName: nova_campus
+    user: nova_user
+    plan: free
+    region: singapore
